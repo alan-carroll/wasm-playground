@@ -123,7 +123,6 @@
             (i64.const 32)))
       f64.reinterpret_i64
       global.get $twom54
-      f64.mul
-      br $ret) ;; end $ret
+      f64.mul) ;; end $ret
   )
 )
