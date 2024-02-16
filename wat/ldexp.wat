@@ -3,8 +3,6 @@
   ;; https://www.netlib.org/fdlibm/s_ldexp.c
   ;; https://www.netlib.org/fdlibm/s_scalbn.c
 
-  (memory 1)
-
   (global $two54 f64 (f64.const 1.80143985094819840000e+16))
   (global $twom54 f64 (f64.const 5.55111512312578270212e-17))
 
