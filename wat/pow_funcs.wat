@@ -583,7 +583,6 @@
       local.set $x
 
       ;; #L600 'find significand of x in antilog table A[]'
-      ;; TODO if `i` is just an index to the array, can I avoid all the (i32.const 8) mul repitition? is `i` reused?
       (local.set $i (i32.const 1))
       (if (f64.le (local.get $x) (f64.load (i32.add 
         (global.get $A_addr) 
@@ -606,7 +605,6 @@
       (local.set $i (i32.add (local.get $i) (i32.const 1)))
 
       ;; #L620
-      ;; TODO manage `i` better
       (local.get $x)
       (f64.load (i32.add (global.get $A_addr) (i32.mul (i32.const 8) (local.get $i))))
       f64.sub
