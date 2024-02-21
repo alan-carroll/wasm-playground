@@ -12,27 +12,22 @@
   ;; polynomial arrays
   (global $P_addr i32 (i32.const 0))
   (global $P_count i32 (i32.const 7))
-  (global $Q_addr i32 (i32.const 56)) ;; 0 + 7*8 = 56
+  (global $Q_addr i32 (i32.const 56)) ;; 0 + 7 * 8 = 56
   (global $Q_count i32 (i32.const 8))
-  (global $STIR_addr i32 (i32.const 120)) ;; 56 + 8*8 = 120
+  (global $STIR_addr i32 (i32.const 120)) ;; 56 + 8 * 8 = 120
   (global $STIR_count i32 (i32.const 5))
-
-  ;; Modified to match `fastexp` overflow limit
-  ;; (global $MAXGAM f64 (f64.const 171.624376956302725))
-  (global $MAXGAM f64 (f64.const 88.72283))
-  (global $LOGPI f64 (f64.const 1.14472988584940017414))
-  (global $MAXSTIR f64 (f64.const 143.01608))
-  (global $SQTPI f64 (f64.const 2.50662827463100050242E0))
-  (global $MAXLOG f64 (f64.const 7.09782712893383996732E2))
-  (global $M_PI f64 (f64.const 3.14159265358979323846))
 
   (start $init)
 
-  (func $_store (param $addr i32) (param $off i32) (param $val f64)
-    (f64.store (i32.add 
-      (local.get $addr) 
-      (i32.mul (local.get $off) (i32.const 8)))
+  (func $_store (param $addr i32) (param $idx i32) (param $val f64)
+    (f64.store align=8 
+      (i32.add (local.get $addr) (i32.mul (local.get $idx) (i32.const 8)))
       (local.get $val))
+  )
+
+  (func $_load (param $addr i32) (param $idx i32) (result f64)
+    (f64.load align=8 
+      (i32.add (local.get $addr) (i32.mul (local.get $idx) (i32.const 8))))
   )
 
   (func $init
@@ -70,43 +65,43 @@
     (local $_ptr i32)
     (local $_N i32)
     (local $_polans f64)
+    
+    (local $MAXGAM f64)
+    (local $MAXSTIR f64)
+    (local $SQTPI f64)
+    (local $STIR_addr i32)
+    ;; Modified to match `fastexp` overflow limit
+    ;; (local.set $MAXGAM (f64.const 171.624376956302725))
+    (local.set $MAXGAM (f64.const 88.72283))
+    (local.set $MAXSTIR (f64.const 143.01608))
+    (local.set $SQTPI (f64.const 2.50662827463100050242E0))
+    (local.set $STIR_addr (i32.const 120))
 
-    (block $ret (result f64)
-      (f64.ge (local.get $x) (global.get $MAXGAM)) if (f64.const inf) (br $ret) end
 
-      (local.tee $w (f64.div (f64.const 1) (local.get $x))) ;; w on stack
-      ;; polevl( w, STIR, 4 )
-      (local.set $_N (i32.const 4))
-      (local.set $_polans (f64.load (local.tee $_ptr (global.get $STIR_addr))))
-      (loop $STIR_coef_loop
-        (f64.mul (local.get $_polans) (local.get $w))
-        (local.tee $_ptr (i32.add (local.get $_ptr) (i32.const 8)))
-        f64.load
-        f64.add
-        (local.set $_polans)
-        (local.tee $_N (i32.sub (local.get $_N) (i32.const 1)))
-        br_if $STIR_coef_loop)
-      (local.get $_polans)
-      f64.mul ;; w * polevl
-      (f64.const 1)
-      f64.add
-      (local.set $w)
+    (if (f64.ge (local.get $x) (local.get $MAXGAM)) (then (f64.const inf) return))
 
-      (local.set $y (f64.promote_f32 (call $fastexp (f32.demote_f64 (local.get $x))))) ;; #L147
-      (f64.gt (local.get $x) (global.get $MAXSTIR))
-      if (result f64)
+    (local.tee $w (f64.div (f64.const 1) (local.get $x))) ;; w on stack
+    ;; polevl( w, STIR, 4 )
+    (local.set $_N (i32.const 4))
+    (local.set $_polans (f64.load (local.tee $_ptr (local.get $STIR_addr))))
+    (loop $polevl
+      (f64.mul (local.get $_polans) (local.get $w))
+      (local.tee $_ptr (i32.add (local.get $_ptr) (i32.const 8)))
+      (local.set $_polans (f64.add (f64.load align=8)))
+      (local.tee $_N (i32.sub (local.get $_N) (i32.const 1)))
+      (br_if $polevl))
+    (local.set $w (f64.add (f64.const 1) (f64.mul (local.get $_polans)))) ;; 1 + w * polevl
+
+    (local.set $y (f64.promote_f32 (call $fastexp (f32.demote_f64 (local.get $x))))) ;; #L147
+
+    (if (result f64) (f64.gt (local.get $x) (local.get $MAXSTIR))
+      (then
         (local.tee $v (call $pow (local.get $x) (f64.sub (f64.mul (local.get $x) (f64.const 0.5)) (f64.const 0.25))))
-        (f64.div (local.get $v) (local.get $y))
-        f64.mul ;; v * v/y
-        (local.tee $y)
-      else 
-        (local.tee $y (f64.div (call $pow (local.get $x) (f64.sub (local.get $x) (f64.const 0.5))) (local.get $y)))
-      end
-      (local.get $w)
-      f64.mul
-      (global.get $SQTPI)
-      f64.mul ;; SQTPI * y * w
-    ) ;; end $ret
+        (local.tee $y (f64.mul (f64.div (local.get $v) (local.get $y))))) ;; v * v/y
+      (else
+        (local.tee $y (f64.div (call $pow (local.get $x) (f64.sub (local.get $x) (f64.const 0.5))) (local.get $y)))))
+
+    (f64.mul (f64.mul (local.get $w)) (local.get $SQTPI)) ;; SQTPI * y * w
   )
 
   (func $gamma (export "gamma") (param $x f64) (result f64) ;; #L160
@@ -118,102 +113,99 @@
     (local $_ptr i32)
     (local $_polans f64)
 
-    ;; isfinite(x) - checks +/- inf and nan
-    (i32.wrap_i64 (i64.shr_s (i64.reinterpret_f64 (local.get $x)) (i64.const 32)))
-    (i32.and (i32.const 0x7ff00000))
-    (i32.ne (i32.const 0x7ff00000))
-    i32.eqz if (local.get $x) return end ;; x not finite
+    (local $M_PI f64)
+    (local $P_addr i32)
+    (local $Q_addr i32)
+    (local.set $M_PI (f64.const 3.14159265358979323846))
+    (local.set $P_addr (global.get $P_addr))
+    (local.set $Q_addr (global.get $Q_addr))
 
-    (f64.gt (local.tee $q (f64.abs (local.get $x))) (f64.const 33))
-    if
-      (if (f64.lt (local.get $x) (f64.const 0)) (then
-        (local.tee $p (f64.floor (local.get $q)))
-        (if (f64.eq (local.get $q)) (then (f64.const inf) return))
-        (if (i32.eqz (i32.and (i32.trunc_f64_s (local.get $p)) (i32.const 1))) ;; even/odd
-          (then (local.set $sgngam (i32.const 1))))
-        (if (f64.gt (local.tee $z (f64.sub (local.get $q) (local.get $p))) (f64.const 0.5))
-          (then (local.set $z (f64.sub (local.get $q) (f64.add (local.get $p) (f64.const 1))))))
-        (local.tee $z (f64.mul (local.get $q) (call $sin (f64.mul (global.get $M_PI) (local.get $z)))))
-        (if (f64.eq (f64.const 0)) (then 
-          (if (local.get $sgngam) 
-            (then (f64.const -inf) return) (else (f64.const inf) return))))
-        (local.set $z (f64.div 
-          (global.get $M_PI) 
-          (f64.mul (f64.abs (local.get $z)) (call $stirf (local.get $q)))))
-        )
-        (else (local.set $z (call $stirf (local.get $x))))
-      )
-      (if (local.get $sgngam) 
-        (then (f64.neg (local.get $z)) return) 
-        (else (local.get $z) return))
-    end
+    (i32.wrap_i64 (i64.shr_s (i64.reinterpret_f64 (local.get $x)) (i64.const 32))) ;; isfinite(x)
+    (i32.ne (i32.and (i32.const 0x7ff00000)) (i32.const 0x7ff00000))
+    (if (i32.eqz) (then (local.get $x) return)) ;; x not finite
+
+    (if (f64.gt (local.tee $q (f64.abs (local.get $x))) (f64.const 33)) (then 
+      (if (f64.lt (local.get $x) (f64.const 0)) 
+        (then
+          (local.tee $p (f64.floor (local.get $q)))
+          (if (f64.eq (local.get $q)) (then (f64.const inf) return))
+          (if (i32.eqz (i32.and (i32.trunc_f64_s (local.get $p)) (i32.const 1))) ;; even/odd
+            (then (local.set $sgngam (i32.const 1))))
+          (if (f64.gt (local.tee $z (f64.sub (local.get $q) (local.get $p))) (f64.const 0.5))
+            (then (local.set $z (f64.sub (local.get $q) (f64.add (local.get $p) (f64.const 1))))))
+          (local.tee $z (f64.mul (local.get $q) (call $sin (f64.mul (local.get $M_PI) (local.get $z)))))
+          (if (f64.eq (f64.const 0))
+            (then (if (local.get $sgngam) 
+              (then (f64.const -inf) return) 
+              (else (f64.const inf) return))))
+          (local.set $z (f64.div (local.get $M_PI) (f64.mul (f64.abs (local.get $z)) (call $stirf (local.get $q))))))
+        (else (local.set $z (call $stirf (local.get $x)))))
+      (if (local.get $sgngam)
+        (then (f64.neg (local.get $z)) return)
+        (else (local.get $z) return))))
 
     (local.set $z (f64.const 1))
     (if (f64.ge (local.get $x) (f64.const 3)) (then
-      (loop $z_loop
+      (loop $while
         (local.tee $x (f64.sub (local.get $x) (f64.const 1)))
         (local.set $z (f64.mul (local.get $z)))
         (f64.ge (local.get $x) (f64.const 3))
-        (br_if $z_loop))))
+        (br_if $while))))
     
     (if (f64.lt (local.get $x) (f64.const 0)) (then
-      (loop $z_loop
+      (loop $while
         (if (f64.gt (local.get $x) (f64.const -1E-9)) 
           (then (if (f64.eq (local.get $x) (f64.const 0)) 
             (then (f64.const inf) return) 
             (else (f64.div 
               (local.get $z) 
-              (f64.mul (local.get $x) (f64.add (f64.const 1) (f64.mul 
-                (local.get $x) (f64.const 0.5772156649015329)))))
-              return)))
-        )
+              (f64.mul (local.get $x) 
+                (f64.add (f64.const 1) 
+                  (f64.mul (local.get $x) (f64.const 0.5772156649015329)))))
+              return))))
         (local.set $z (f64.div (local.get $z) (local.get $x)))
         (local.set $x (f64.add (local.get $x) (f64.const 1)))
         (f64.lt (local.get $x) (f64.const 0))
-        (br_if $z_loop))))
+        (br_if $while))))
 
     (if (f64.lt (local.get $x) (f64.const 2)) (then
-      (loop $z_loop
+      (loop $while
         (if (f64.lt (local.get $x) (f64.const 1E-9)) 
           (then (if (f64.eq (local.get $x) (f64.const 0)) 
             (then (f64.const inf) return) 
             (else (f64.div 
               (local.get $z) 
-              (f64.mul (local.get $x) (f64.add (f64.const 1) (f64.mul 
-                (local.get $x) (f64.const 0.5772156649015329)))))
-              return)))
-        )
+              (f64.mul (local.get $x) 
+                (f64.add (f64.const 1) 
+                  (f64.mul (local.get $x) (f64.const 0.5772156649015329)))))
+              return))))
         (local.set $z (f64.div (local.get $z) (local.get $x)))
         (local.set $x (f64.add (local.get $x) (f64.const 1)))
         (f64.lt (local.get $x) (f64.const 2))
-        (br_if $z_loop))))
+        (br_if $while))))
 
     (if (f64.eq (local.get $x) (f64.const 2)) (then (local.get $z) return))
 
     (local.set $x (f64.sub (local.get $x) (f64.const 2)))
     ;; p = polevl(x, P, 6)
     (local.set $_N (i32.const 6))
-    (local.set $_polans (f64.load (local.tee $_ptr (global.get $P_addr))))
-    (loop $polevl_loop
+    (local.set $_polans (f64.load align=8 (local.tee $_ptr (local.get $P_addr))))
+    (loop $polevl
       (f64.mul (local.get $_polans) (local.get $x))
       (local.tee $_ptr (i32.add (local.get $_ptr) (i32.const 8)))
-      f64.load
-      f64.add
-      (local.set $_polans)
+      (local.set $_polans (f64.add (f64.load align=8)))
       (local.tee $_N (i32.sub (local.get $_N) (i32.const 1)))
-      br_if $polevl_loop)
+      (br_if $polevl))
     (f64.mul (local.get $z) (local.get $_polans)) ;; z * p on the stack
     ;; q = polevl(x, Q, 7)
     (local.set $_N (i32.const 7))
-    (local.set $_polans (f64.load (local.tee $_ptr (global.get $Q_addr))))
-    (loop $polevl_loop
+    (local.set $_polans (f64.load align=8 (local.tee $_ptr (local.get $Q_addr))))
+    (loop $polevl
       (f64.mul (local.get $_polans) (local.get $x))
       (local.tee $_ptr (i32.add (local.get $_ptr) (i32.const 8)))
-      f64.load
-      f64.add
-      (local.set $_polans)
+      (local.set $_polans (f64.add (f64.load align=8)))
       (local.tee $_N (i32.sub (local.get $_N) (i32.const 1)))
-      br_if $polevl_loop)
+      (br_if $polevl))
 
     (f64.div (local.get $_polans)) ;; return z * p / q
   )
