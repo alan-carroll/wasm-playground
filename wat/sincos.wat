@@ -9,6 +9,12 @@
   (global $sincof_addr i32 (i32.const 0))
   (global $coscof_addr i32 (i32.const 48))
 
+  (global $DP1 f64 (f64.const 7.85398125648498535156E-1))
+  (global $DP2 f64 (f64.const 3.77489470793079817668E-8))
+  (global $DP3 f64 (f64.const 2.69515142907905952645E-15))
+  (global $lossth f64 (f64.const 1.073741824e9))
+  (global $PIO4 f64 (f64.const 7.85398163397448309616E-1))
+
   (start $init)
 
   (func $_store (param $addr i32) (param $idx i32) (param $val f64)
@@ -50,20 +56,10 @@
     (local $_N i32)
     (local $_polans f64)
 
-    (local $DP1 f64)
-    (local $DP2 f64)
-    (local $DP3 f64)
-    (local $lossth f64)
-    (local $PIO4 f64)
     (local $sincof_addr i32)
     (local $coscof_addr i32)
-    (local.set $DP1 (f64.const 7.85398125648498535156E-1))
-    (local.set $DP2 (f64.const 3.77489470793079817668E-8))
-    (local.set $DP3 (f64.const 2.69515142907905952645E-15))
-    (local.set $lossth (f64.const 1.073741824e9))
-    (local.set $PIO4 (f64.const 7.85398163397448309616E-1))
-    (local.set $sincof_addr (i32.const 0))
-    (local.set $coscof_addr (i32.const 48))
+    (local.set $sincof_addr (global.get $sincof_addr))
+    (local.set $coscof_addr (global.get $coscof_addr))
 
     (if (f64.eq (local.get $x) (f64.const 0)) (then (local.get $x) return))
     (if (i32.eqz (f64.eq (local.get $x) (local.get $x))) (then (local.get $x) return)) ;; isnan(x)
@@ -75,9 +71,9 @@
       (then (local.set $x (f64.neg (local.get $x))) (local.set $sign (i32.const -1))) 
       (else (local.set $sign (i32.const 1))))
     
-    (if (f64.gt (local.get $x) (local.get $lossth)) (then (f64.const 0) return))
+    (if (f64.gt (local.get $x) (global.get $lossth)) (then (f64.const 0) return))
 
-    (local.tee $y (f64.floor (f64.div (local.get $x) (local.get $PIO4))))
+    (local.tee $y (f64.floor (f64.div (local.get $x) (global.get $PIO4))))
     (local.tee $j (i32.trunc_f64_s 
       (f64.sub
         (local.get $y)
@@ -95,9 +91,9 @@
         (f64.sub
           (f64.sub 
             (local.get $x) 
-            (f64.mul (local.get $y) (local.get $DP1)))
-          (f64.mul (local.get $y) (local.get $DP2)))
-        (f64.mul (local.get $y) (local.get $DP3))))
+            (f64.mul (local.get $y) (global.get $DP1)))
+          (f64.mul (local.get $y) (global.get $DP2)))
+        (f64.mul (local.get $y) (global.get $DP3))))
     (local.set $zz (f64.mul (local.get $z)))
 
     (if (i32.or (i32.eq (local.get $j) (i32.const 1)) (i32.eq (local.get $j) (i32.const 2)))
@@ -149,20 +145,10 @@
     (local $_N i32)
     (local $_polans f64)
 
-    (local $DP1 f64)
-    (local $DP2 f64)
-    (local $DP3 f64)
-    (local $lossth f64)
-    (local $PIO4 f64)
     (local $sincof_addr i32)
     (local $coscof_addr i32)
-    (local.set $DP1 (f64.const 7.85398125648498535156E-1))
-    (local.set $DP2 (f64.const 3.77489470793079817668E-8))
-    (local.set $DP3 (f64.const 2.69515142907905952645E-15))
-    (local.set $lossth (f64.const 1.073741824e9))
-    (local.set $PIO4 (f64.const 7.85398163397448309616E-1))
-    (local.set $sincof_addr (i32.const 0))
-    (local.set $coscof_addr (i32.const 48))
+    (local.set $sincof_addr (global.get $sincof_addr))
+    (local.set $coscof_addr (global.get $coscof_addr))
 
     (if (i32.eqz (f64.eq (local.get $x) (local.get $x))) (then (local.get $x) return)) ;; isnan(x)
     (i32.wrap_i64 (i64.shr_s (i64.reinterpret_f64 (local.get $x)) (i64.const 32))) ;; isfinite(x)
@@ -172,9 +158,9 @@
     (local.set $sign (i32.const 1))
     (if (f64.lt (local.get $x) (f64.const 0)) (then (local.set $x (f64.neg (local.get $x)))))
 
-    (if (f64.gt (local.get $x) (local.get $lossth)) (then (f64.const 0) return))
+    (if (f64.gt (local.get $x) (global.get $lossth)) (then (f64.const 0) return))
 
-    (local.tee $y (f64.floor (f64.div (local.get $x) (local.get $PIO4))))
+    (local.tee $y (f64.floor (f64.div (local.get $x) (global.get $PIO4))))
     (local.tee $j (i32.trunc_f64_s 
       (f64.sub
         (local.get $y)
@@ -194,9 +180,9 @@
         (f64.sub
           (f64.sub 
             (local.get $x) 
-            (f64.mul (local.get $y) (local.get $DP1)))
-          (f64.mul (local.get $y) (local.get $DP2)))
-        (f64.mul (local.get $y) (local.get $DP3))))
+            (f64.mul (local.get $y) (global.get $DP1)))
+          (f64.mul (local.get $y) (global.get $DP2)))
+        (f64.mul (local.get $y) (global.get $DP3))))
     (local.set $zz (f64.mul (local.get $z)))
 
     (if (i32.or (i32.eq (local.get $j) (i32.const 1)) (i32.eq (local.get $j) (i32.const 2)))

@@ -117,8 +117,8 @@
     (local $P_addr i32)
     (local $Q_addr i32)
     (local.set $M_PI (f64.const 3.14159265358979323846))
-    (local.set $P_addr (i32.const 0))
-    (local.set $Q_addr (i32.const 56))
+    (local.set $P_addr (global.get $P_addr))
+    (local.set $Q_addr (global.get $Q_addr))
 
     (i32.wrap_i64 (i64.shr_s (i64.reinterpret_f64 (local.get $x)) (i64.const 32))) ;; isfinite(x)
     (i32.ne (i32.and (i32.const 0x7ff00000)) (i32.const 0x7ff00000))
