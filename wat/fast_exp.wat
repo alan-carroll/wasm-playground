@@ -46,7 +46,7 @@
   )
 
   (func $fastexp (export "fastexp") (param $x f32) (result f32)
-  ;; https://github.com/alan-carroll/wasm-fun/blob/875fb215d089fa4a7596a2f1f83b281137071917/wat/random.wat#L133
+    ;; https://github.com/alan-carroll/wasm-fun/blob/875fb215d089fa4a7596a2f1f83b281137071917/wat/random.wat#L133
     ;; Added under/overflow protection
     (local $m i32)
     (local $i i32)
